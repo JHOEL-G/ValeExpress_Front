@@ -551,10 +551,10 @@ export default function FirmaDoc({ referencia, ubicacion, onCerrar }) {
       const payloadRegistroFinal = {
         latitud: Number(ubicacion.latitud),
         logitud: Number(ubicacion.longitud),
-        firma: firmaImgBase64,
+        firma: `data:image/jpeg;base64,${firmaImgBase64}`,
         firmaPath: firmaPath,
         certificaDocumento: debeCertificar,
-        firmantesRestantes: 0,
+        tmpRegistrarDB: true,
       };
 
       if (contratoFirmaData) {

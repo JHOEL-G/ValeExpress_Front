@@ -34,8 +34,8 @@ export default function ReconocimientoFacial() {
   const [recognitionScore, setRecognitionScore] = useState(null);
   const [liveSimilarity, setLiveSimilarity] = useState(0);
   const [cameraActive, setCameraActive] = useState(false);
+  const isProcessingRef = useRef(false);
 
-  // ✅ NUEVO: Estado para liveness detection
   const [livenessStatus, setLivenessStatus] = useState("Iniciando...");
   const [facePositions, setFacePositions] = useState([]);
   const [modelActive, setModelActive] = useState(false);
@@ -57,7 +57,7 @@ export default function ReconocimientoFacial() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
-  const livenessIntervalRef = useRef(null); // ✅ NUEVO
+  const livenessIntervalRef = useRef(null);
 
   const fotoIneFrontal =
     location.state?.fotoIneFrontal || localStorage.getItem(`fotoIne_${id}`);
@@ -69,7 +69,6 @@ export default function ReconocimientoFacial() {
     }
   }, [fotoIneFrontal, navigate]);
 
-  // ✅ NUEVO: Cargar modelo de TensorFlow al montar
   useEffect(() => {
     const loadModel = async () => {
       if (tf.getBackend() !== 'webgl') {
@@ -300,13 +299,9 @@ export default function ReconocimientoFacial() {
     };
 
     intervalRef.current = setInterval(async () => {
-      if (isProcessingFrame) {
-        return;
-      }
+      if (isProcessingRef.current) return;
 
-      if (!videoRef.current || !canvasRef.current) {
-        return;
-      }
+      if (!videoRef.current || !canvasRef.current) return;
 
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -320,7 +315,7 @@ export default function ReconocimientoFacial() {
 
       const frameData = canvas.toDataURL("image/jpeg", 0.7);
 
-      isProcessingFrame = true;
+      isProcessingRef.current = true;
       startSimulation();
 
       try {
@@ -353,7 +348,6 @@ export default function ReconocimientoFacial() {
 
             if (sim >= 90) {
               clearInterval(intervalRef.current);
-
               setTimeout(() => {
                 if (simulationInterval) clearInterval(simulationInterval);
                 capturePhoto();
@@ -365,7 +359,7 @@ export default function ReconocimientoFacial() {
         console.error("⚠️ Error:", err);
         if (simulationInterval) clearInterval(simulationInterval);
       } finally {
-        isProcessingFrame = false;
+        isProcessingRef.current = false;
       }
     }, 1500);
 
@@ -769,13 +763,13 @@ export default function ReconocimientoFacial() {
                 >
                   <div className="w-16 h-16 bg-white rounded-full" />
                 </button>
-                {/*<button
+                <button
                   onClick={() => document.getElementById('file-upload-facial').click()}
                   className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-2xl text-gray-700 font-bold text-sm shadow-xl border border-white"
                 >
                   <Upload size={18} />
                   USAR GALERÍA
-                </button>*/}
+                </button>
               </div>
 
               <p className="text-gray-800 text-center font-bold bg-white/90 px-6 py-2 rounded-full shadow-sm backdrop-blur-sm text-sm uppercase tracking-wide">

@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useState, useRef, useEffect } from "react";
 import {
   CheckCircle,
@@ -19,10 +18,10 @@ export default function CapturaINE() {
   const [fotoIneFrontal, setFotoIneFrontal] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
-  const [stream, setStream] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
   const { markStepComplete } = useFlow();
-
+  const streamRef = useRef(null);
+  const isProcessingRef = useRef(false);
 
   const { id } = useParams();
   const navigate = useNavigate();
@@ -32,9 +31,9 @@ export default function CapturaINE() {
   const canvasRef = useRef(null);
 
   const stopStream = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null; // no dispara re-render
     }
   };
 
@@ -43,25 +42,21 @@ export default function CapturaINE() {
     setError(null);
     setCameraReady(false);
 
-    const constraints = {
-      video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
-    };
-
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia(
-        constraints
-      );
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         videoRef.current.onloadedmetadata = () => {
           videoRef.current.play();
           setCameraReady(true);
         };
-        setStream(mediaStream);
+        streamRef.current = mediaStream;
       }
     } catch (err) {
       setError("No se pudo acceder a la cámara. Verifica los permisos.");
@@ -92,6 +87,8 @@ export default function CapturaINE() {
   };
 
   const validarSoloFrente = async (imagenDataUrl) => {
+    if (isProcessingRef.current) return; // ✅ guard
+    isProcessingRef.current = true;
     setIsProcessing(true);
     setError(null);
     try {
@@ -101,22 +98,19 @@ export default function CapturaINE() {
         id || "temp_ref"
       );
       const info = respuesta?.data?.[0];
-
-      {/*if (!info || info.estatus === "ERROR" || !info.curp) {
-        throw new Error("No se detectó el frente de una INE válida...");
-      }}*/}
-
       setFotoIneFrontal(imagenDataUrl);
-      localStorage.setItem(`fotoIne_${id}`, imagenDataUrl);
       setStep(3);
     } catch (err) {
       setError(err.message || "Error al validar el frente.");
     } finally {
+      isProcessingRef.current = false; // ✅ liberar
       setIsProcessing(false);
     }
   };
 
   const validarReversoYFinalizar = async (imagenReversoUrl) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
     setIsProcessing(true);
     setError(null);
     try {
@@ -128,16 +122,13 @@ export default function CapturaINE() {
       const info = respuesta?.data?.[0];
 
       if (info && info.curp && info.nombres && !info.mrz) {
-        setError(
-          "Capturaste el frente otra vez. Por favor, gira la INE y captura el reverso (con el código MRZ)."
-        );
-        setIsProcessing(false);
-        return;
+        // ✅ Solo setear el error, el finally libera el guard
+        setError("Capturaste el frente otra vez. Por favor, gira la INE y captura el reverso (con el código MRZ).");
+        return; // ✅ ahora sí es seguro porque finally siempre corre
       }
 
       if (info && info.estatus !== "ERROR" && info.mrz) {
         localStorage.setItem(`ocrData_${id}`, JSON.stringify(info));
-        localStorage.setItem(`fotoIneReverso_${id}`, imagenReversoUrl);
         stopStream();
         setStep(5);
       } else {
@@ -146,12 +137,14 @@ export default function CapturaINE() {
     } catch (err) {
       setError(err.message || "Error al validar el reverso.");
     } finally {
+      isProcessingRef.current = false; // ✅ siempre se libera, con return o sin él
       setIsProcessing(false);
     }
   };
 
   const capturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current || !cameraReady) return;
+    // ✅ Doble check: ref inmediato + estado
+    if (isProcessingRef.current || !videoRef.current || !canvasRef.current || !cameraReady) return;
 
     const canvas = canvasRef.current;
     canvas.width = videoRef.current.videoWidth;
@@ -165,6 +158,7 @@ export default function CapturaINE() {
     else if (step === 3) await validarReversoYFinalizar(compressed);
   };
 
+
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -174,6 +168,7 @@ export default function CapturaINE() {
   };
 
   const reiniciarProceso = () => {
+    isProcessingRef.current = false; // ✅ resetear al reiniciar
     setError(null);
     setFotoIneFrontal(null);
     setStep(1);
@@ -183,7 +178,7 @@ export default function CapturaINE() {
   useEffect(() => {
     if (step === 2 || step === 3) startCamera();
     return () => stopStream();
-  }, [step]);
+  }, [step]); // ahora sí solo se ejecuta cuando cambia step
 
   return (
     <div className="fixed inset-0 bg-white flex flex-col">
@@ -288,7 +283,6 @@ export default function CapturaINE() {
         )}
       </main>
 
-      {/* Botones inferiores - más pequeños y elegantes */}
       {(step === 2 || step === 3) && (
         <div className="px-6 pb-8 mt-5 bg-white">
           <div className="grid">
@@ -300,14 +294,14 @@ export default function CapturaINE() {
               <Camera size={20} />
               CAPTURAR
             </button>
-            <button
+            {/*<button
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}
               className="bg-white border-2 border-gray-200 text-gray-600 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:bg-gray-50 transition"
             >
               <Upload size={20} />
               SUBIR DESDE ARCHIVO
-            </button>
+            </button>*/}
           </div>
         </div>
       )}

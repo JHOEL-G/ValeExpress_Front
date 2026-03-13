@@ -215,12 +215,8 @@ export const globalApi = {
     usuarioId = "1"
   ) => {
     try {
-
-
-
       if (payloadRegistro.contratoFirma?.data?.[0]) {
         const data0 = payloadRegistro.contratoFirma.data[0];
-
       }
 
       const cleanRef = String(referencia).trim();
@@ -231,9 +227,8 @@ export const globalApi = {
         validacionTipoId: String(cleanRef.charAt(0)),
       };
 
-
       const response = await apiNegocio.post(
-        "/Cliente/contrato/registro",
+        "/Cliente/v2/contrato/registro",  // ← cambio aquí
         payloadRegistro,
         { headers }
       );
@@ -259,7 +254,7 @@ export const globalApi = {
     const tipoId = cleanRef.charAt(0);
 
     try {
-      const response = await apiNegocio.get("/Solicitud/contrato/v2/doc", {
+      const response = await apiNegocio.get("/Solicitud/contrato/v3/doc", {
         headers: {
           validacionTipoId: tipoId,
           referencia: cleanRef,

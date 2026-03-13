@@ -1140,10 +1140,10 @@ export default function FormularioCompleto() {
                       d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                     />
                   </svg>
-                  <span className="text-sm font-bold">CON TARJETA</span>
+                  <span className="text-sm font-bold">TRANSFERENCIA</span>
                 </label>
 
-                <label
+                {/*<label
                   className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border cursor-pointer transition-all ${formData.datosBancarios === "sin_tarjeta"
                     ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
                     : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
@@ -1171,8 +1171,8 @@ export default function FormularioCompleto() {
                       d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
                     />
                   </svg>
-                  <span className="text-sm font-bold whitespace-nowrap">SIN TARJETA</span>
-                </label>
+                  <span className="text-sm font-bold whitespace-nowrap">RETIRO SIN TARJETA</span>
+                </label>*/}
               </div>
             </div>
 
