@@ -19,9 +19,6 @@ import {
   AlertDialogFooter
 } from "@/compomentes/ui/alert-dialog";
 import { useFlow } from "./FlowContext";
-import * as faceapi from 'face-api.js';
-import * as tf from '@tensorflow/tfjs-core';
-import '@tensorflow/tfjs-backend-webgl';
 
 
 
@@ -36,12 +33,7 @@ export default function ReconocimientoFacial() {
   const [cameraActive, setCameraActive] = useState(false);
   const isProcessingRef = useRef(false);
 
-  const [livenessStatus, setLivenessStatus] = useState("Iniciando...");
-  const [facePositions, setFacePositions] = useState([]);
-  const [modelActive, setModelActive] = useState(false);
   const { markStepComplete } = useFlow();
-
-  const [model, setModel] = useState(null);
 
   const [errorDialog, setErrorDialog] = useState({
     isOpen: false,
@@ -52,12 +44,10 @@ export default function ReconocimientoFacial() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [hasBlinked, setHasBlinked] = useState(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
-  const livenessIntervalRef = useRef(null);
 
   const fotoIneFrontal =
     location.state?.fotoIneFrontal || localStorage.getItem(`fotoIne_${id}`);
@@ -70,33 +60,9 @@ export default function ReconocimientoFacial() {
   }, [fotoIneFrontal, navigate]);
 
   useEffect(() => {
-    const loadModel = async () => {
-      if (tf.getBackend() !== 'webgl') {
-        await tf.setBackend('webgl');
-      }
-      await tf.ready();
-      try {
-        const MODEL_URL = '/models';
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-        ]);
-
-
-        console.log("✅ Modelos de Face-API cargados correctamente");
-        setModelActive(true); // <--- Ahora sí funcionará
-      } catch (error) {
-        console.error("❌ Error cargando modelos locales:", error);
-      }
-    };
-    loadModel();
-  }, []);
-
-  useEffect(() => {
     return () => {
       if (stream) stream.getTracks().forEach((t) => t.stop());
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (livenessIntervalRef.current) clearInterval(livenessIntervalRef.current);
     };
   }, [stream]);
 
@@ -140,132 +106,11 @@ export default function ReconocimientoFacial() {
   };
 
   useEffect(() => {
-    if (step !== 3 || !cameraActive || !model || !videoRef.current) {
-      if (livenessIntervalRef.current) clearInterval(livenessIntervalRef.current);
-      return;
-    }
-
-    setLivenessStatus("Detectando rostro...");
-    const positions = [];
-
-    livenessIntervalRef.current = setInterval(async () => {
-      try {
-        const predictions = await model.estimateFaces(videoRef.current, false);
-
-        if (predictions.length > 0) {
-          const face = predictions[0];
-
-          if (face.probability[0] < 0.70) {
-            setHasBlinked(true);
-          }
-
-          const position = {
-            x: face.topLeft[0],
-            y: face.topLeft[1],
-            timestamp: Date.now()
-          };
-
-          positions.push(position);
-
-          if (positions.length > 10) {
-            positions.shift();
-          }
-
-          setFacePositions([...positions]);
-
-          if (positions.length >= 5) {
-            const movement = calculateMovement(positions);
-
-            if (movement < 6) {
-              setLivenessStatus("⚠️ Mueve un poco la cabeza");
-            } else if (!hasBlinked) {
-              setLivenessStatus("✅ Bien, ahora parpadea");
-            } else {
-              setLivenessStatus("✅ Prueba de vida completada");
-            }
-          }
-        } else {
-          setLivenessStatus("⚠️ No se detecta rostro");
-          positions.length = 0;
-        }
-      } catch (error) {
-        console.error("Error en detección:", error);
-      }
-    }, 300);
-
-    return () => clearInterval(livenessIntervalRef.current);
-  }, [step, cameraActive, model, hasBlinked]);
-
-  // ✅ NUEVO: Calcular movimiento entre frames
-  const calculateMovement = (positions) => {
-    if (positions.length < 2) return 0;
-
-
-
-    let totalMovement = 0;
-    for (let i = 1; i < positions.length; i++) {
-      const dx = positions[i].x - positions[i - 1].x;
-      const dy = positions[i].y - positions[i - 1].y;
-      totalMovement += Math.sqrt(dx * dx + dy * dy);
-    }
-
-
-
-    return totalMovement / (positions.length - 1);
-  };
-
-  // ✅ REVISADO: Validación estricta para bloquear fotos de otros dispositivos
-  const isLivenessValid = () => {
-    // 1. Necesitamos una muestra más amplia para analizar trayectoria
-    if (facePositions.length < 10) {
-      return { valid: false, reason: "Analizando entorno de seguridad..." };
-    }
-
-    const movement = calculateMovement(facePositions);
-
-    // 2. Bloqueo de fotos estáticas (INEs o fotos impresas)
-    if (movement < 6) {
-      return { valid: false, reason: "Imagen demasiado estática. Por favor, mueve tu cabeza." };
-    }
-
-    // 3. Bloqueo de vibración (Mano temblando vs Rostro moviéndose)
-    // El movimiento de un celular frente a la cámara suele ser errático y rápido.
-    if (movement > 80) {
-      return { valid: false, reason: "Movimiento inestable. Sujeta el teléfono con firmeza." };
-    }
-
-    // 4. Validación de Giro Real (Diferencia Profundidad vs Plano)
-    const first = facePositions[0];
-    const last = facePositions[facePositions.length - 1];
-    const horizontalMovement = Math.abs(first.x - last.x);
-
-    // Aumentamos a 25px para obligar a un giro lateral claro
-    if (horizontalMovement < 25) {
-      return {
-        valid: false,
-        reason: "❌ Rostro plano detectado. Por favor, gira lentamente tu cabeza de izquierda a derecha."
-      };
-    }
-
-    // 5. El factor decisivo: Parpadeo Humano
-    // Las fotos digitales no parpadean de forma natural con la caída de probabilidad de BlazeFace
-    if (!hasBlinked) {
-      return {
-        valid: false,
-        reason: "❌ Seguridad: Por favor, parpadea frente a la cámara para validar tu identidad."
-      };
-    }
-
-    return { valid: true, reason: "Validación correcta" };
-  };
-
-  useEffect(() => {
     if (step !== 3 || !cameraActive || isProcessing) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
 
-    let isProcessingFrame = false;
     let simulationInterval = null;
 
     const startSimulation = () => {
@@ -370,12 +215,7 @@ export default function ReconocimientoFacial() {
   }, [step, cameraActive, isProcessing, fotoIneFrontal, id]);
 
   const capturePhoto = () => {
-
     if (!videoRef.current || !canvasRef.current) return;
-
-    // ✅ NUEVO: Validar liveness antes de capturar
-    const livenessCheck = isLivenessValid();
-
 
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -407,7 +247,6 @@ export default function ReconocimientoFacial() {
     }
     setCameraActive(false);
     if (intervalRef.current) clearInterval(intervalRef.current);
-    if (livenessIntervalRef.current) clearInterval(livenessIntervalRef.current);
 
     processValidation(imageData);
   };
@@ -418,9 +257,7 @@ export default function ReconocimientoFacial() {
 
     const data = imageData.data;
 
-    let totalBrightness = 0;
     let veryWhitePixels = 0;
-    let mediumBrightPixels = 0;
     let sharpEdges = 0;
     let textLikePatterns = 0;
 
@@ -428,7 +265,6 @@ export default function ReconocimientoFacial() {
     const width = canvas.width;
     const height = canvas.height;
 
-    // 1. Primero recorremos los píxeles para contar
     for (let y = 0; y < height; y += sampleRate) {
       for (let x = 0; x < width; x += sampleRate) {
         const i = (y * width + x) * 4;
@@ -437,14 +273,9 @@ export default function ReconocimientoFacial() {
         const b = data[i + 2];
 
         const brightness = (r + g + b) / 3;
-        totalBrightness += brightness;
 
         if (brightness > 240 && Math.abs(r - g) < 5 && Math.abs(g - b) < 5) {
           veryWhitePixels++;
-        }
-
-        if (brightness > 190 && brightness < 235) {
-          mediumBrightPixels++;
         }
 
         if (x > sampleRate && y > sampleRate) {
@@ -463,16 +294,13 @@ export default function ReconocimientoFacial() {
       }
     }
 
-    // 2. Calculamos los ratios DESPUÉS del bucle
     const totalPixels = (width * height) / (sampleRate * sampleRate);
     const veryWhiteRatio = veryWhitePixels / totalPixels;
     const sharpEdgeRatio = sharpEdges / totalPixels;
     const textPatternRatio = textLikePatterns / totalPixels;
 
-    // 3. Ahora sí definimos isScreen porque las variables ya tienen valor
     const isScreen = (veryWhiteRatio > 0.10 && textPatternRatio > 0.04);
 
-    // 4. Validaciones de seguridad
     if (isScreen) {
       return {
         isValid: false,
@@ -669,7 +497,6 @@ export default function ReconocimientoFacial() {
     setCapturedFace(null);
     setRecognitionScore(null);
     setLiveSimilarity(0);
-    setFacePositions([]);
     setStep(1);
   };
 
@@ -681,7 +508,6 @@ export default function ReconocimientoFacial() {
     reader.onload = async (e) => {
       const imageData = e.target.result;
 
-      // 1. Crear un canvas temporal para validar la imagen
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
@@ -690,7 +516,6 @@ export default function ReconocimientoFacial() {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0);
 
-        // 2. Ejecutar tus validaciones detalladas (Moiré, Brillo, etc.)
         const validationResult = validateLiveCaptureDetailed(canvas);
 
         if (!validationResult.isValid) {
@@ -702,7 +527,6 @@ export default function ReconocimientoFacial() {
           return;
         }
 
-        // 3. Si es válida, procesar como si fuera una captura
         setCapturedFace(imageData);
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -717,7 +541,7 @@ export default function ReconocimientoFacial() {
   };
 
   return (
-    <div className="fixed inset-0 bg-white flex flex-col">
+    <div className="fixed inset-0 flex flex-col" style={{ background: "#f0fafa" }}>
       <input
         type="file"
         id="file-upload-facial"
@@ -738,41 +562,61 @@ export default function ReconocimientoFacial() {
               muted
             />
 
+            {/* Badge de similitud */}
             <div className="absolute top-24 left-1/2 -translate-x-1/2 z-10">
-              <div className="bg-white/90 backdrop-blur rounded-2xl px-8 py-4 shadow-2xl text-center">
-                <p className="text-gray-700 font-medium mb-2">
+              <div
+                className="backdrop-blur rounded-2xl px-8 py-4 shadow-2xl text-center"
+                style={{ background: "rgba(255,255,255,0.93)" }}
+              >
+                <p className="font-medium mb-2" style={{ color: "#5a7a7a" }}>
                   Coincidencia con tu INE
                 </p>
-                <p className="text-4xl font-bold text-gray-900">
+                <p className="text-4xl font-extrabold" style={{ color: "#1a2e2e" }}>
                   {liveSimilarity}%
                 </p>
                 {liveSimilarity >= 90 && (
-                  <p className="text-green-600 font-bold mt-3 animate-pulse">
+                  <p
+                    className="font-bold mt-3 animate-pulse"
+                    style={{ color: "#56BDBC" }}
+                  >
                     ¡Capturando automáticamente!
                   </p>
                 )}
               </div>
             </div>
 
+            {/* Controles */}
             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-4 w-full px-4">
               <div className="flex items-center gap-6">
+                {/* Botón captura */}
                 <button
                   onClick={capturePhoto}
                   disabled={!cameraActive}
-                  className="w-20 h-20 bg-gray-800 rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition disabled:opacity-50 border-4 border-white"
+                  className="w-20 h-20 rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition disabled:opacity-50 border-4 border-white"
+                  style={{ background: "linear-gradient(135deg, #56BDBC, #7CDC55)" }}
                 >
-                  <div className="w-16 h-16 bg-white rounded-full" />
+                  <div className="w-14 h-14 bg-white rounded-full" />
                 </button>
+
+                {/* Botón galería */}
                 <button
-                  onClick={() => document.getElementById('file-upload-facial').click()}
-                  className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-2xl text-gray-700 font-bold text-sm shadow-xl border border-white"
+                  onClick={() => document.getElementById("file-upload-facial").click()}
+                  className="flex items-center gap-2 backdrop-blur-md px-5 py-2.5 rounded-2xl font-bold text-sm shadow-xl border"
+                  style={{
+                    background: "rgba(255,255,255,0.92)",
+                    color: "#56BDBC",
+                    borderColor: "#9DD9DC",
+                  }}
                 >
                   <Upload size={18} />
                   USAR GALERÍA
                 </button>
               </div>
 
-              <p className="text-gray-800 text-center font-bold bg-white/90 px-6 py-2 rounded-full shadow-sm backdrop-blur-sm text-sm uppercase tracking-wide">
+              <p
+                className="text-center font-bold px-6 py-2 rounded-full shadow-sm backdrop-blur-sm text-sm uppercase tracking-wide"
+                style={{ background: "rgba(255,255,255,0.92)", color: "#1a2e2e" }}
+              >
                 Captura rostro
               </p>
             </div>
@@ -781,37 +625,49 @@ export default function ReconocimientoFacial() {
 
         {/* Modales */}
         {(step === 1 || step === 4 || step === 5 || step === 6) && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white px-6">
+          <div className="absolute inset-0 z-50 flex items-center justify-center px-6" style={{ background: "#f0fafa" }}>
             <div className="bg-white rounded-3xl shadow-2xl p-10 max-w-md w-full text-center">
+
+              {/* Step 1 – Inicio */}
               {step === 1 && (
                 <>
-                  <Camera className="w-16 h-16 text-gray-800 mx-auto mb-6" />
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  <div
+                    className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+                    style={{ background: "linear-gradient(135deg, #D3F0DC, #9DD9DC)" }}
+                  >
+                    <Camera size={40} style={{ color: "#56BDBC" }} strokeWidth={1.8} />
+                  </div>
+                  <h2 className="text-2xl font-extrabold mb-4" style={{ color: "#1a2e2e" }}>
                     Verificación Facial
                   </h2>
-                  <p className="text-gray-600 mb-10">
-                    Mira a la cámara. Se mostrará el porcentaje de coincidencia
-                    en tiempo real.
+                  <p className="text-base leading-relaxed mb-10" style={{ color: "#5a7a7a" }}>
+                    Mira a la cámara. Se mostrará el porcentaje de coincidencia en tiempo real.
                   </p>
                   <button
                     onClick={requestCameraAccess}
                     disabled={isLoadingCamera}
-                    className="w-full bg-gray-800 text-white font-bold py-5 rounded-2xl shadow-lg transition active:scale-95 disabled:opacity-50"
+                    className="w-full text-white font-bold py-4 rounded-2xl shadow-lg transition active:scale-95 disabled:opacity-50"
+                    style={{ background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)" }}
                   >
                     {isLoadingCamera ? "Iniciando..." : "Comenzar"}
                   </button>
                 </>
               )}
 
+              {/* Step 4 – Procesando */}
               {step === 4 && (
                 <div className="py-10">
-                  <Loader2 className="w-20 h-20 animate-spin text-gray-800 mx-auto mb-6" />
-                  <h3 className="text-xl font-bold text-gray-900">
+                  <Loader2
+                    className="w-20 h-20 animate-spin mx-auto mb-6"
+                    style={{ color: "#56BDBC" }}
+                  />
+                  <h3 className="text-xl font-bold" style={{ color: "#1a2e2e" }}>
                     Procesando coincidencia final...
                   </h3>
                 </div>
               )}
 
+              {/* Step 5 – Éxito */}
               {step === 5 && (
                 <>
                   <div className="relative inline-block mb-8">
@@ -820,14 +676,17 @@ export default function ReconocimientoFacial() {
                       alt="Selfie"
                       className="w-40 h-40 rounded-3xl object-cover shadow-xl"
                     />
-                    <div className="absolute -bottom-4 -right-4 bg-green-600 rounded-2xl p-4 shadow-2xl">
-                      <CheckCircle className="w-12 h-12 text-white" />
+                    <div
+                      className="absolute -bottom-4 -right-4 rounded-2xl p-3 shadow-2xl"
+                      style={{ background: "linear-gradient(135deg, #56BDBC, #7CDC55)" }}
+                    >
+                      <CheckCircle className="w-10 h-10 text-white" />
                     </div>
                   </div>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  <h2 className="text-2xl font-extrabold mb-2" style={{ color: "#1a2e2e" }}>
                     ¡Coincidencia verificada!
                   </h2>
-                  <p className="text-3xl font-bold text-green-600 mb-10">
+                  <p className="text-3xl font-extrabold mb-10" style={{ color: "#56BDBC" }}>
                     {recognitionScore}% de similitud
                   </p>
                   <button
@@ -835,13 +694,15 @@ export default function ReconocimientoFacial() {
                       markStepComplete(id, "reconocimiento");
                       navigate(`/vista/${id}`);
                     }}
-                    className="w-full bg-gray-800 text-white font-bold py-6 rounded-2xl text-xl shadow-xl transition active:scale-95"
+                    className="w-full text-white font-bold py-5 rounded-2xl text-lg shadow-xl active:scale-95 transition flex items-center justify-center gap-2"
+                    style={{ background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)" }}
                   >
                     CONTINUAR
                   </button>
                 </>
               )}
 
+              {/* Step 6 – Fallo */}
               {step === 6 && (
                 <>
                   <div className="relative inline-block mb-8">
@@ -850,28 +711,30 @@ export default function ReconocimientoFacial() {
                       alt="Selfie"
                       className="w-40 h-40 rounded-3xl object-cover shadow-xl"
                     />
-                    <div className="absolute -bottom-4 -right-4 bg-red-600 rounded-2xl p-4 shadow-2xl">
-                      <AlertCircle className="w-12 h-12 text-white" />
+                    <div className="absolute -bottom-4 -right-4 bg-red-500 rounded-2xl p-3 shadow-2xl">
+                      <AlertCircle className="w-10 h-10 text-white" />
                     </div>
                   </div>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  <h2 className="text-2xl font-extrabold mb-2" style={{ color: "#1a2e2e" }}>
                     Los rostros no coinciden
                   </h2>
-                  <p className="text-2xl font-bold text-red-600 mb-6">
+                  <p className="text-2xl font-bold text-red-500 mb-3">
                     {recognitionScore}% de similitud
                   </p>
-                  <p className="text-gray-600 mb-10">
+                  <p className="text-sm leading-relaxed mb-10" style={{ color: "#5a7a7a" }}>
                     Necesitamos al menos 90%. Intenta con mejor iluminación.
                   </p>
                   <button
                     onClick={reintentar}
-                    className="w-full bg-gray-800 text-white font-bold py-6 rounded-2xl text-xl shadow-xl transition active:scale-95 flex items-center justify-center gap-4"
+                    className="w-full text-white font-bold py-5 rounded-2xl text-lg shadow-xl active:scale-95 transition flex items-center justify-center gap-3"
+                    style={{ background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)" }}
                   >
-                    <RotateCcw className="w-8 h-8" />
+                    <RotateCcw size={22} />
                     REINTENTAR
                   </button>
                 </>
               )}
+
             </div>
           </div>
         )}
@@ -879,26 +742,26 @@ export default function ReconocimientoFacial() {
 
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* ⚠️ Dialog de Error - FUERA de los steps */}
       <AlertDialog
         open={errorDialog.isOpen}
         onOpenChange={(open) => setErrorDialog(prev => ({ ...prev, isOpen: open }))}
       >
         <AlertDialogContent className="bg-white rounded-3xl p-8 shadow-2xl max-w-[90vw] md:max-w-md">
           <AlertDialogHeader className="space-y-4">
-            <div className="mx-auto bg-red-100 w-16 h-16 rounded-full flex items-center justify-center">
-              <AlertCircle className="w-10 h-10 text-red-600" />
+            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "#fff0f0" }}>
+              <AlertCircle className="w-10 h-10 text-red-500" />
             </div>
-            <AlertDialogTitle className="text-2xl font-bold text-center text-gray-900">
+            <AlertDialogTitle className="text-2xl font-extrabold text-center" style={{ color: "#1a2e2e" }}>
               {errorDialog.title}
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-center text-gray-600 text-base leading-relaxed">
+            <AlertDialogDescription className="text-center text-base leading-relaxed" style={{ color: "#5a7a7a" }}>
               {errorDialog.message}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6">
             <AlertDialogAction
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-2xl text-base shadow-lg active:scale-95 transition-all p-7"
+              className="w-full text-white font-bold py-4 rounded-2xl text-base shadow-lg active:scale-95 transition-all p-7"
+              style={{ background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)" }}
               onClick={() => {
                 setErrorDialog({ isOpen: false, title: "", message: "" });
                 reintentar();

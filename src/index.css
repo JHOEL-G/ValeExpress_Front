@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+:root {
+    --teal-principal: #56BDBC;
+    --verde-vibrante: #7CDC55;
+    --verde-menta-claro: #D3F0DC;
+    --azul-celeste-suave: #9DD9DC;
+}

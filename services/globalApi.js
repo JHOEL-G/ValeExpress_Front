@@ -5,7 +5,7 @@ const apiNegocio = axios.create({
   baseURL: "/api-negocio/api",
   headers: {
     "Content-Type": "application/json",
-    "x-api-key": "99A7F0FCE91CECE2D52429D1243F2950",
+    "x-api-key": import.meta.env.VITE_API_KEY_NEGOCIO,
   },
 });
 
@@ -13,7 +13,7 @@ const apiServicios = axios.create({
   baseURL: "/api-servicios",
   headers: {
     "Content-Type": "application/json",
-    "X-Api-Key": "96c9b926a6d3207d0bd1dda8d3e468bd1111111",
+    "X-Api-Key": import.meta.env.VITE_API_KEY_SERVICE,
   },
 });
 

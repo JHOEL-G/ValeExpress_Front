@@ -12,7 +12,6 @@ import { useNavigate, useParams } from "react-router";
 import imageCompression from "browser-image-compression";
 import { useFlow } from "./FlowContext";
 
-
 export default function CapturaINE() {
   const [step, setStep] = useState(1);
   const [fotoIneFrontal, setFotoIneFrontal] = useState(null);
@@ -33,7 +32,7 @@ export default function CapturaINE() {
   const stopStream = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null; // no dispara re-render
+      streamRef.current = null;
     }
   };
 
@@ -181,7 +180,7 @@ export default function CapturaINE() {
   }, [step]); // ahora sí solo se ejecuta cuando cambia step
 
   return (
-    <div className="fixed inset-0 bg-white flex flex-col">
+    <div className="fixed inset-0 flex flex-col" style={{ background: "#f0fafa" }}>
       <input
         type="file"
         ref={fileInputRef}
@@ -192,24 +191,27 @@ export default function CapturaINE() {
       />
 
       {(step === 2 || step === 3) && (
-        <div className="px-6 pt-10 pb-6 text-center bg-white">
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+        <div className="px-6 pt-10 pb-5 bg-white shadow-sm">
+          <h2 className="text-xl font-bold text-center mb-4" style={{ color: "#1a2e2e" }}>
             Captura {step === 2 ? "el frente" : "el reverso"} de tu INE
           </h2>
-          <div className="flex justify-center gap-6">
+          <div className="flex items-center justify-center gap-3">
             <div
-              className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold shadow-md ${step >= 2
-                ? "bg-gray-800 text-white"
-                : "bg-gray-200 text-gray-500"
-                }`}
+              className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shadow-md text-white"
+              style={{ background: "linear-gradient(135deg, #56BDBC, #9DD9DC)" }}
             >
               1
             </div>
             <div
-              className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold shadow-md ${step >= 3
-                ? "bg-gray-800 text-white"
-                : "bg-gray-200 text-gray-500"
-                }`}
+              className="h-1 w-12 rounded-full"
+              style={{ background: step >= 3 ? "linear-gradient(90deg, #56BDBC, #7CDC55)" : "#D3F0DC" }}
+            />
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shadow-md"
+              style={{
+                background: step >= 3 ? "linear-gradient(135deg, #56BDBC, #9DD9DC)" : "#D3F0DC",
+                color: step >= 3 ? "white" : "#56BDBC",
+              }}
             >
               2
             </div>
@@ -219,19 +221,46 @@ export default function CapturaINE() {
 
       <main className="flex-1 relative">
         {step === 1 && (
-          <div className="flex flex-col items-center justify-center h-full px-8 text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">
-              Validación de Identidad
-            </h1>
-            <p className="text-lg text-gray-600 mb-12 max-w-md">
-              Prepara tu INE original. Tomaremos fotos claras del frente y
-              reverso.
-            </p>
+          <div className="flex flex-col justify-between h-full px-6 py-10">
+            <div>
+              <h1 className="text-3xl font-extrabold mb-3" style={{ color: "#1a2e2e" }}>
+                Validación<br />de Identidad
+              </h1>
+              <p className="text-base leading-relaxed" style={{ color: "#5a7a7a" }}>
+                Prepara tu INE original. Tomaremos fotos claras del frente y reverso.
+              </p>
+            </div>
+
+            <div className="rounded-3xl p-6 bg-white shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-widest mb-5" style={{ color: "#8aabab" }}>
+                Cómo funciona
+              </p>
+              {[
+                { num: "1", label: "Frente de tu INE", desc: "Foto clara del lado con tu foto" },
+                { num: "2", label: "Reverso de tu INE", desc: "El lado con código de barras MRZ" },
+                { num: "3", label: "Verificación", desc: "Validamos tu identidad al instante" },
+              ].map((item, i) => (
+                <div key={i} className={`flex items-start gap-4 ${i < 2 ? "mb-4" : ""}`}>
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold flex-shrink-0"
+                    style={{ background: "#D3F0DC", color: "#56BDBC" }}
+                  >
+                    {item.num}
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm" style={{ color: "#1a2e2e" }}>{item.label}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "#7a9999" }}>{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <button
               onClick={() => setStep(2)}
-              className="w-full max-w-md bg-gray-800 text-white py-5 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition"
+              className="w-full py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+              style={{ background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)" }}
             >
-              COMENZAR CAPTURA
+              Comenzar captura
             </button>
           </div>
         )}
@@ -246,11 +275,47 @@ export default function CapturaINE() {
               className="absolute inset-0 w-full h-full object-cover"
             />
 
+            {/* Scan corners overlay */}
+            {!isProcessing && cameraReady && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="relative" style={{ width: "85%", aspectRatio: "1.586" }}>
+                  {/* Esquinas */}
+                  {[
+                    "top-0 left-0 border-t-2 border-l-2 rounded-tl-xl",
+                    "top-0 right-0 border-t-2 border-r-2 rounded-tr-xl",
+                    "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-xl",
+                    "bottom-0 right-0 border-b-2 border-r-2 rounded-br-xl",
+                  ].map((cls, i) => (
+                    <div
+                      key={i}
+                      className={`absolute w-7 h-7 ${cls}`}
+                      style={{ borderColor: "#7CDC55" }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Hint label */}
+            {!isProcessing && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full" style={{ background: "rgba(0,0,0,0.5)" }}>
+                <p className="text-white text-xs font-medium whitespace-nowrap">
+                  {step === 2 ? "Centra el frente de tu INE" : "Muestra el reverso con código MRZ"}
+                </p>
+              </div>
+            )}
+
             {isProcessing && (
-              <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center z-20">
-                <Loader2 className="w-20 h-20 animate-spin text-gray-800 mb-6" />
-                <p className="text-2xl font-bold text-gray-900">
-                  Validando {step === 2 ? "frente" : "reverso"}...
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-20" style={{ background: "rgba(240,250,250,0.96)" }}>
+                <Loader2
+                  className="w-16 h-16 animate-spin mb-4"
+                  style={{ color: "#56BDBC" }}
+                />
+                <p className="text-xl font-bold" style={{ color: "#1a2e2e" }}>
+                  Analizando {step === 2 ? "frente" : "reverso"}...
+                </p>
+                <p className="text-sm mt-1" style={{ color: "#7a9999" }}>
+                  Esto solo toma un momento
                 </p>
               </div>
             )}
@@ -258,76 +323,78 @@ export default function CapturaINE() {
         )}
 
         {step === 5 && (
-          <div className="flex flex-col items-center justify-center h-full px-8 text-center">
-            <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center mb-8 shadow-lg">
-              <CheckCircle size={80} className="text-green-600" />
+          <div className="flex flex-col items-center justify-between h-full px-6 py-16">
+            <div className="flex flex-col items-center text-center">
+              <div
+                className="w-28 h-28 rounded-full flex items-center justify-center mb-6 shadow-lg"
+                style={{ background: "linear-gradient(135deg, #D3F0DC, #9DD9DC)" }}
+              >
+                <CheckCircle size={68} style={{ color: "#56BDBC" }} strokeWidth={2} />
+              </div>
+              <span
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full mb-3"
+                style={{ background: "#D3F0DC", color: "#2d8a5e" }}
+              >
+                Identidad verificada
+              </span>
+              <h1 className="text-2xl font-extrabold mb-3" style={{ color: "#1a2e2e" }}>
+                ¡Todo listo!
+              </h1>
+              <p className="text-base leading-relaxed" style={{ color: "#5a7a7a", maxWidth: 280 }}>
+                Tu INE ha sido validada correctamente. Puedes continuar.
+              </p>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              ¡Identidad verificada!
-            </h1>
-            <p className="text-lg text-gray-600 mb-12">
-              Tu INE ha sido validada correctamente.
-            </p>
+
             <button
               onClick={() => {
                 markStepComplete(id, "capturaINE");
-                navigate(`/reconocimiento/${id}`, {
-                  state: { fotoIneFrontal: fotoIneFrontal }
-                });
+                navigate(`/reconocimiento/${id}`, { state: { fotoIneFrontal } });
               }}
-              className="w-full max-w-md bg-gray-800 text-white py-5 rounded-2xl font-bold text-lg shadow-lg"
+              className="w-full max-w-sm py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+              style={{ background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)" }}
             >
-              CONTINUAR PROCESO
+              Continuar proceso
             </button>
           </div>
         )}
       </main>
 
       {(step === 2 || step === 3) && (
-        <div className="px-6 pb-8 mt-5 bg-white">
-          <div className="grid">
-            <button
-              onClick={capturePhoto}
-              disabled={isProcessing || !cameraReady}
-              className="bg-gray-800 disabled:opacity-60 text-white py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition"
-            >
-              <Camera size={20} />
-              CAPTURAR
-            </button>
-            {/*<button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing}
-              className="bg-white border-2 border-gray-200 text-gray-600 py-3.5 rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:bg-gray-50 transition"
-            >
-              <Upload size={20} />
-              SUBIR DESDE ARCHIVO
-            </button>*/}
-          </div>
+        <div className="px-6 pb-8 pt-4 bg-white">
+          <button
+            onClick={capturePhoto}
+            disabled={isProcessing || !cameraReady}
+            className="w-full py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 active:scale-95 transition-transform"
+            style={{ background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)" }}
+          >
+            <Camera size={20} />
+            Capturar foto
+          </button>
         </div>
       )}
 
       <canvas ref={canvasRef} className="hidden" />
 
       {error && !isProcessing && (step === 2 || step === 3) && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-6">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full">
+        <div className="fixed inset-0 flex items-center justify-center z-50 px-6" style={{ background: "rgba(10,30,30,0.5)" }}>
+          <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm">
             <div className="flex flex-col items-center text-center">
-              <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
-                <AlertCircle size={48} className="text-red-600" />
+              <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5" style={{ background: "#fff0f0" }}>
+                <AlertCircle size={48} style={{ color: "#e05252" }} />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">
+              <h3 className="text-xl font-extrabold mb-3" style={{ color: "#1a2e2e" }}>
                 No se pudo validar
               </h3>
-              <p className="text-base text-gray-700 mb-8 leading-relaxed px-2">
+              <p className="text-sm leading-relaxed mb-7" style={{ color: "#5a7a7a" }}>
                 {error}
               </p>
-
               <button
                 onClick={reiniciarProceso}
-                className="w-full bg-gray-800 text-white py-4 rounded-xl font-bold text-base shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
+                style={{ background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)" }}
               >
                 <RotateCcw size={20} />
-                REINTENTAR
+                Intentar de nuevo
               </button>
             </div>
           </div>

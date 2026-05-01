@@ -125,41 +125,54 @@ const Paso8VisualizarContrato = () => {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <h3 style={{ textAlign: "center", margin: "10px 0" }}>
-        Contrato de Solicitud
-      </h3>
+    <div
+      className="flex flex-col"
+      style={{ height: "100vh", background: "#f0fafa" }}
+    >
+      {/* HEADER */}
+      <div
+        className="flex-shrink-0 px-5 pt-8 pb-4"
+        style={{ background: "#f0fafa" }}
+      >
+        <h3
+          className="text-xl font-extrabold text-center"
+          style={{ color: "#1a2e2e" }}
+        >
+          Contrato de Solicitud
+        </h3>
+      </div>
 
       {/* TOOLBAR */}
       <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "10px",
-          padding: "10px",
-          backgroundColor: "#e5e7eb",
-        }}
+        className="flex-shrink-0 flex items-center justify-center gap-4 px-5 py-3 mx-5 mb-3 rounded-2xl shadow-sm"
+        style={{ background: "white", border: "1px solid #D3F0DC" }}
       >
-        <button onClick={() => setScale((s) => Math.max(s - 0.25, 0.5))}>
-          ➖ Alejar
+        <button
+          onClick={() => setScale((s) => Math.max(s - 0.25, 0.5))}
+          className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg transition active:scale-90"
+          style={{ background: "#D3F0DC", color: "#56BDBC" }}
+        >
+          −
         </button>
-        <span style={{ fontWeight: "bold" }}>{Math.round(scale * 100)}%</span>
-        <button onClick={() => setScale((s) => Math.min(s + 0.25, 2))}>
-          ➕ Acercar
+        <span
+          className="text-sm font-bold w-12 text-center"
+          style={{ color: "#1a2e2e" }}
+        >
+          {Math.round(scale * 100)}%
+        </span>
+        <button
+          onClick={() => setScale((s) => Math.min(s + 0.25, 2))}
+          className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg transition active:scale-90"
+          style={{ background: "#D3F0DC", color: "#56BDBC" }}
+        >
+          +
         </button>
       </div>
 
       {/* VISUALIZADOR */}
       <div
-        style={{
-          flex: 1,
-          backgroundColor: "#525659",
-          overflow: "auto",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "20px 0",
-        }}
+        className="flex-1 overflow-auto flex flex-col items-center py-4 px-2"
+        style={{ background: "#3a4a4a" }}
       >
         {pdfUrl && (
           <Document
@@ -168,13 +181,17 @@ const Paso8VisualizarContrato = () => {
             onLoadError={(error) => console.error("Error en PDF:", error)}
           >
             {Array.from(new Array(numPages), (el, index) => (
-              <Page
+              <div
                 key={`page_${index + 1}`}
-                pageNumber={index + 1}
-                scale={scale}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-              />
+                className="mb-3 rounded-xl overflow-hidden shadow-2xl"
+              >
+                <Page
+                  pageNumber={index + 1}
+                  scale={scale}
+                  renderTextLayer={false}
+                  renderAnnotationLayer={false}
+                />
+              </div>
             ))}
           </Document>
         )}
@@ -182,72 +199,51 @@ const Paso8VisualizarContrato = () => {
 
       {/* BOTÓN DE ACCIÓN */}
       <div
-        style={{
-          padding: "20px",
-          textAlign: "center",
-          backgroundColor: "#f4f4f4",
-        }}
+        className="flex-shrink-0 px-5 py-5"
+        style={{ background: "#f0fafa" }}
       >
         <button
           onClick={handleAbrirModal}
+          className="w-full max-w-sm mx-auto py-4 rounded-2xl font-bold text-base text-white flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform"
           style={{
-            backgroundColor: "#282195",
-            color: "white",
-            padding: "14px 40px",
-            borderRadius: "12px",
-            border: "none",
-            fontWeight: "bold",
-            cursor: "pointer",
-            width: "100%",
-            maxWidth: "300px",
+            background: "linear-gradient(135deg, #56BDBC 0%, #7CDC55 100%)",
+            display: "flex",
           }}
         >
-          CONFIRMAR Y FIRMAR
+          ✍️ Confirmar y Firmar
         </button>
       </div>
 
       {/* MODAL DE FIRMA */}
       {isModalOpen && (
         <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            background: "rgba(0,0,0,0.8)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
+          className="fixed inset-0 z-50 flex items-center justify-center px-5"
+          style={{ background: "rgba(10,30,30,0.6)", backdropFilter: "blur(4px)" }}
         >
           <div
+            className="relative w-full rounded-3xl shadow-2xl overflow-y-auto"
             style={{
               background: "white",
-              padding: "20px",
-              borderRadius: "15px",
-              width: "90%",
-              maxWidth: "500px",
-              position: "relative",
+              maxWidth: 500,
               maxHeight: "90vh",
-              overflowY: "auto",
+              padding: "28px 20px 20px",
             }}
           >
+            {/* Franja superior decorativa */}
+            <div
+              className="absolute top-0 left-0 right-0 h-1.5 rounded-t-3xl"
+              style={{ background: "linear-gradient(90deg, #56BDBC, #7CDC55)" }}
+            />
+
+            {/* Botón cerrar */}
             <button
               onClick={() => setIsModalOpen(false)}
-              style={{
-                position: "absolute",
-                top: 10,
-                right: 10,
-                border: "none",
-                background: "none",
-                fontSize: "18px",
-                cursor: "pointer",
-              }}
+              className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center font-bold text-base transition active:scale-90"
+              style={{ background: "#D3F0DC", color: "#56BDBC" }}
             >
               ✕
             </button>
+
             <FirmaDoc
               referencia={id}
               ubicacion={ubicacion}
